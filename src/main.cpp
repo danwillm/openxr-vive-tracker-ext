@@ -2,10 +2,12 @@
 #include <vector>
 
 #include "openxr/openxr.h"
+#include <thread>
 
 int main() {
     std::vector<const char *> enabledExtensions = {
-            XR_MND_HEADLESS_EXTENSION_NAME
+            XR_MND_HEADLESS_EXTENSION_NAME,
+            XR_HTCX_VIVE_TRACKER_INTERACTION_EXTENSION_NAME,
     };
 
     XrInstance instance;
@@ -15,7 +17,7 @@ int main() {
                 .applicationVersion = 1,
                 .engineName = "",
                 .engineVersion = 1,
-                .apiVersion = XR_MAKE_VERSION(1, 1, 0),
+                .apiVersion = XR_MAKE_VERSION(1, 0, 0),
         };
         XrInstanceCreateInfo instanceCreateInfo = {
                 .type = XR_TYPE_INSTANCE_CREATE_INFO,
@@ -76,20 +78,112 @@ int main() {
         return 1;
     }
 
-    XrEventDataBuffer event = {XR_TYPE_EVENT_DATA_BUFFER};
-    while (XrResult result = xrPollEvent(instance, &event)) {
-        switch (event.type) {
-            case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
-                const XrEventDataSessionStateChanged &sessionStateChanged = *reinterpret_cast<XrEventDataSessionStateChanged *>(&event);
+    XrPath trackerChest;
+    if(XrResult result = xrStringToPath(instance, "/user/vive_tracker_htcx/role/chest", &trackerChest)) {
+        std::cout << "String to path error: " << result << std::endl;
+        return 1;
+    }
 
-                switch (sessionStateChanged.state) {
-                    case XR_SESSION_STATE_READY: {
-
-                    }
-                }
-
-                break;
-            }
+    XrAction viveAction1;
+    {
+        XrActionCreateInfo actionCreateInfo = {
+                .type = XR_TYPE_ACTION_CREATE_INFO,
+                .actionName = "viveaction1",
+                .actionType = XR_ACTION_TYPE_POSE_INPUT,
+                .countSubactionPaths = 1,
+                .subactionPaths = &trackerChest,
+                .localizedActionName = "Vive Action Test 1",
+        };
+        if(XrResult result = xrCreateAction(actionSet, &actionCreateInfo, &viveAction1)) {
+            std::cout << "Failed to create action " << result << std::endl;
+            return 1;
         }
     }
+
+    XrAction viveAction2;
+    {
+        XrActionCreateInfo actionCreateInfo = {
+                .type = XR_TYPE_ACTION_CREATE_INFO,
+                .actionName = "viveaction2",
+                .actionType = XR_ACTION_TYPE_BOOLEAN_INPUT,
+                .countSubactionPaths = 1,
+                .subactionPaths = &trackerChest,
+                .localizedActionName = "Vive Action Test 2",
+        };
+        if(XrResult result = xrCreateAction(actionSet, &actionCreateInfo, &viveAction2)) {
+            std::cout << "Failed to create action " << result << std::endl;
+            return 1;
+        }
+    }
+
+    XrPath viveTrackerInteractionProfilePath;
+    if(XrResult result = xrStringToPath(instance, "/interaction_profiles/htc/vive_tracker_htcx", &viveTrackerInteractionProfilePath)) {
+        std::cout << "String to path error: " << result << std::endl;
+        return 1;
+    }
+
+    XrPath viveTrackerGrip;
+    if(XrResult result = xrStringToPath(instance, "/user/vive_tracker_htcx/role/chest/input/grip/pose", &viveTrackerGrip)) {
+        std::cout << "String to path error: " << result << std::endl;
+        return 1;
+    }
+
+    XrPath viveTrackerTriggerClick;
+    if(XrResult result = xrStringToPath(instance, "/user/vive_tracker_htcx/role/chest/input/trigger/click", &viveTrackerTriggerClick)) {
+        std::cout << "String to path error: " << result << std::endl;
+        return 1;
+    }
+
+    std::vector<XrActionSuggestedBinding> suggestedBindings = {
+            {
+                    .action = viveAction2,
+                    .binding = viveTrackerTriggerClick
+            },
+            {
+                    .action = viveAction1,
+                    .binding = viveTrackerGrip,
+            }
+    };
+
+    XrInteractionProfileSuggestedBinding viveTrackerBindings = {
+            .type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING,
+            .interactionProfile = viveTrackerInteractionProfilePath,
+            .countSuggestedBindings = (uint32_t ) suggestedBindings.size(),
+            .suggestedBindings = suggestedBindings.data(),
+    };
+    if(XrResult result = xrSuggestInteractionProfileBindings(instance, &viveTrackerBindings)) {
+        std::cout << "Failed to suggest bindings: " << result << std::endl;
+        return 1;
+    }
+
+    XrEventDataBuffer event = {XR_TYPE_EVENT_DATA_BUFFER};
+    while(true) {
+        while (XrResult result = xrPollEvent(instance, &event)) {
+            switch (event.type) {
+                case XR_TYPE_EVENT_DATA_SESSION_STATE_CHANGED: {
+                    const XrEventDataSessionStateChanged &sessionStateChanged = *reinterpret_cast<XrEventDataSessionStateChanged *>(&event);
+
+                    switch (sessionStateChanged.state) {
+                        case XR_SESSION_STATE_READY: {
+                            XrSessionActionSetsAttachInfo attachInfo = {
+                                    .type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO,
+                                    .countActionSets = 1,
+                                    .actionSets = &actionSet,
+                            };
+                            if(XrResult result2 = xrAttachSessionActionSets(session, &attachInfo)) {
+                                std::cout << "Failed to attach action sets: " << result2 << std::endl;
+                                return 1;
+                            }
+
+                            break;
+                        }
+                    }
+
+                    break;
+                }
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
 }
