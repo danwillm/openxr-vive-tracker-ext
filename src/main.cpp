@@ -85,36 +85,17 @@ int main() {
     }
 
     XrAction viveAction1;
-    XrSpace viveActionSpace;
     {
         XrActionCreateInfo actionCreateInfo = {
                 .type = XR_TYPE_ACTION_CREATE_INFO,
                 .actionName = "viveaction1",
-                .actionType = XR_ACTION_TYPE_POSE_INPUT,
+                .actionType = XR_ACTION_TYPE_BOOLEAN_INPUT,
                 .countSubactionPaths = 1,
                 .subactionPaths = &trackerChest,
                 .localizedActionName = "Vive Action Test 1",
         };
         if(XrResult result = xrCreateAction(actionSet, &actionCreateInfo, &viveAction1)) {
             std::cout << "Failed to create action: " << result << std::endl;
-            return 1;
-        }
-
-        XrPosef id = {
-            .orientation = {
-                .w = 1.f,
-            }
-        };
-
-        XrActionSpaceCreateInfo actionSpaceCreateInfo = {
-            .type = XR_TYPE_ACTION_SPACE_CREATE_INFO,
-            .action = viveAction1,
-            .subactionPath = trackerChest,
-            .poseInActionSpace = id,
-        };
-
-        if (XrResult result = xrCreateActionSpace(session, &actionSpaceCreateInfo, &viveActionSpace)) {
-            std::cout << "Failed to create action space: " << result << std::endl;
             return 1;
         }
     }
@@ -142,7 +123,7 @@ int main() {
     }
 
     XrPath viveTrackerGrip;
-    if(XrResult result = xrStringToPath(instance, "/user/vive_tracker_htcx/role/chest/input/grip/pose", &viveTrackerGrip)) {
+    if(XrResult result = xrStringToPath(instance, "/user/vive_tracker_htcx/role/chest/input/squeeze/click", &viveTrackerGrip)) {
         std::cout << "String to path error: " << result << std::endl;
         return 1;
     }
@@ -240,33 +221,36 @@ int main() {
                 return 1;
             }
 
-            XrActionStateGetInfo boolActionGetInfo = {
-                .type = XR_TYPE_ACTION_STATE_GET_INFO,
-                .action = viveAction2,
-                .subactionPath = XR_NULL_PATH
-            };
-            XrActionStateBoolean boolState = {
-                .type = XR_TYPE_ACTION_STATE_BOOLEAN,
-            };
-            if (XrResult result = xrGetActionStateBoolean(session, &boolActionGetInfo, &boolState)) {
-                std::cout << "Failed to get bool action: " << result << std::endl;
-                return 1;
-            }
-
-            std::cout << "trigger state: " << boolState.currentState << std::endl;
-
-            XrActionStateGetInfo poseActionGetInfo = {
+            XrActionStateGetInfo squeezeActionGetInfo = {
                 .type = XR_TYPE_ACTION_STATE_GET_INFO,
                 .action = viveAction1,
                 .subactionPath = XR_NULL_PATH,
             };
-            XrActionStatePose poseState = {
+            XrActionStateBoolean squeezeState = {
                 .type = XR_TYPE_ACTION_STATE_POSE,
             };
-            if (XrResult result = xrGetActionStatePose(session, &poseActionGetInfo, &poseState)) {
-                std::cout << "Failed to get pose action: " << result << std::endl;
+            if (XrResult result = xrGetActionStateBoolean(session, &squeezeActionGetInfo, &squeezeState)) {
+                std::cout << "Failed to get squeeze action: " << result << std::endl;
                 return 1;
             }
+
+            std::cout << "squeeze state: " << squeezeState.currentState << std::endl;
+
+            XrActionStateGetInfo triggerActionGetInfo = {
+                .type = XR_TYPE_ACTION_STATE_GET_INFO,
+                .action = viveAction2,
+                .subactionPath = XR_NULL_PATH
+            };
+            XrActionStateBoolean triggerState = {
+                .type = XR_TYPE_ACTION_STATE_BOOLEAN,
+            };
+            if (XrResult result = xrGetActionStateBoolean(session, &triggerActionGetInfo, &triggerState)) {
+                std::cout << "Failed to get trigger action: " << result << std::endl;
+                return 1;
+            }
+
+            std::cout << "trigger state: " << triggerState.currentState << std::endl;
+
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
